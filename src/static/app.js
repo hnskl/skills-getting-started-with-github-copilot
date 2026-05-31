@@ -14,6 +14,7 @@ document.addEventListener("DOMContentLoaded", () => {
       activitiesList.innerHTML = "";
 
       // Populate activities list
+      activitySelect.innerHTML = '<option value="">-- Select an activity --</option>';
       Object.entries(activities).forEach(([name, details]) => {
         const activityCard = document.createElement("div");
         activityCard.className = "activity-card";
@@ -25,7 +26,57 @@ document.addEventListener("DOMContentLoaded", () => {
           <p>${details.description}</p>
           <p><strong>Schedule:</strong> ${details.schedule}</p>
           <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
+          <div class="participants-section">
+            <h5>Participants</h5>
+            <div class="participants-container"></div>
+          </div>
         `;
+
+        // Build participants list using DOM to avoid HTML-escaping issues
+        const participantsContainer = activityCard.querySelector('.participants-container');
+        if (details.participants && details.participants.length > 0) {
+          const ul = document.createElement('ul');
+          ul.className = 'participants-list';
+          details.participants.forEach(p => {
+            const li = document.createElement('li');
+            li.className = 'participant-item';
+            const span = document.createElement('span');
+            span.className = 'participant-email';
+            span.textContent = p;
+            const btn = document.createElement('button');
+            btn.className = 'participant-delete';
+            btn.setAttribute('aria-label', `Remove ${p}`);
+            btn.textContent = '✕';
+            btn.addEventListener('click', async () => {
+              try {
+                const res = await fetch(`/activities/${encodeURIComponent(name)}/unregister?email=${encodeURIComponent(p)}`, { method: 'POST' });
+                const resJson = await res.json();
+                if (res.ok) {
+                  messageDiv.textContent = resJson.message;
+                  messageDiv.className = 'success';
+                  messageDiv.classList.remove('hidden');
+                  fetchActivities();
+                } else {
+                  messageDiv.textContent = resJson.detail || 'An error occurred';
+                  messageDiv.className = 'error';
+                  messageDiv.classList.remove('hidden');
+                }
+                setTimeout(() => messageDiv.classList.add('hidden'), 5000);
+              } catch (err) {
+                console.error('Error unregistering:', err);
+              }
+            });
+            li.appendChild(span);
+            li.appendChild(btn);
+            ul.appendChild(li);
+          });
+          participantsContainer.appendChild(ul);
+        } else {
+          const pNo = document.createElement('p');
+          pNo.className = 'no-participants';
+          pNo.textContent = 'No participants yet';
+          participantsContainer.appendChild(pNo);
+        }
 
         activitiesList.appendChild(activityCard);
 
@@ -62,6 +113,7 @@ document.addEventListener("DOMContentLoaded", () => {
         messageDiv.textContent = result.message;
         messageDiv.className = "success";
         signupForm.reset();
+        fetchActivities();
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
         messageDiv.className = "error";
